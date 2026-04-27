@@ -1,0 +1,295 @@
+index.html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus Carbon Pulse | TCET Sustainability</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.min.css">
+
+  <style>
+    :root {
+      --bg-base: #0b130c;
+      --bg-surface: #0f1a10;
+      --green-500: #22c55e;
+      --green-400: #4ade80;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --blue: #60a5fa;
+      --text-primary: #e8f5e8;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    h1,
+    h2,
+    .font-syne {
+      font-family: 'Syne', sans-serif;
+    }
+
+    .glass-card {
+      background: var(--bg-surface);
+      border: 1px solid rgba(34, 197, 94, 0.15);
+      border-radius: 20px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glass-card:hover {
+      border-color: rgba(34, 197, 94, 0.35);
+      transform: translateY(-4px);
+    }
+
+    .kpi-stripe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+
+    .src-badge {
+      font-size: 9px;
+      background: rgba(96, 165, 250, 0.08);
+      border: 1px solid rgba(96, 165, 250, 0.2);
+      color: #93c5fd;
+      padding: 2px 6px;
+      border-radius: 8px;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const App = () => {
+      useEffect(() => {
+        renderCampusCharts();
+      }, []);
+
+      const renderCampusCharts = () => {
+        // 1. Campus Scope Distribution
+        new Chart(document.getElementById("scopePie"), {
+          type: "doughnut",
+          data: {
+            labels: ["Scope 1 (15%)", "Scope 2 (65%)", "Scope 3 (20%)"],
+            datasets: [{
+              data: [360, 1560, 480],
+              backgroundColor: ["#22c55e", "#f59e0b", "#ef4444"],
+              borderWidth: 0,
+              cutout: '75%'
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        // 2. Emissions by Campus Source
+        new Chart(document.getElementById("sourceBar"), {
+          type: "bar",
+          data: {
+            labels: ["Departmental Elec", "Campus Labs", "Hostels", "Canteen Fuel", "Backup Gensets", "Student Commute"],
+            datasets: [{
+              data: [900, 450, 210, 120, 180, 540],
+              backgroundColor: "#22c55e",
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#4a7a4c' } },
+              x: { grid: { display: false }, ticks: { color: '#4a7a4c', font: { size: 9 } } }
+            }
+          }
+        });
+
+        // 3. Yearly Campus Trend
+        new Chart(document.getElementById("trendLine"), {
+          type: "bar",
+          data: {
+            labels: ["2021", "2022", "2023", "2024★"],
+            datasets: [
+              { label: "Scope 1", data: [100, 150, 280, 360], backgroundColor: "#22c55e" },
+              { label: "Scope 2", data: [1200, 1100, 1300, 1560], backgroundColor: "#f59e0b" },
+              { label: "Scope 3", data: [200, 350, 400, 480], backgroundColor: "#ef4444" }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' } } },
+            plugins: { legend: { display: false } }
+          }
+        });
+
+        // 4. Neutrality Pathway
+        new Chart(document.getElementById("neutralityLine"), {
+          type: "line",
+          data: {
+            labels: ["2021", "2022", "2023", "2024", "2025", "2026", "2027", "2028", "2029", "2030"],
+            datasets: [
+              { label: "Campus Intensity", data: [100, 95, 88, 82], borderColor: "#22c55e", tension: 0.4, fill: false },
+              { label: "Required Glide Path", data: [100, 95, 88, 82, 70, 55, 40, 25, 10, 0], borderColor: "rgba(96,165,250,0.3)", borderDash: [5, 5], tension: 0.4, fill: false }
+            ]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+      };
+
+      return (
+        <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-8">
+          {/* Header */}
+          <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-green-900/30 pb-8">
+            <div>
+              <div className="flex items-center gap-4 mb-2">
+                <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center font-bold text-bg-base">TCET</div>
+                <h1 className="text-2xl font-bold tracking-tight">Campus Carbon Pulse</h1>
+              </div>
+              <p className="text-green-700 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                Measuring & Visualizing Campus Neutrality Roadmap
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <div className="bg-green-950/30 px-4 py-2 rounded-xl border border-green-800/30 text-[10px] font-bold uppercase tracking-widest text-green-500">
+                Academic Year 2024-25
+              </div>
+            </div>
+          </header>
+
+          {/* KPI Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KPICard title="Total Footprint" value="2,400" unit="tCO2e" stripe="bg-red-500" cite="Campus Audit" />
+            <KPICard title="Intensity / Student" value="0.45" unit="tCO2e" stripe="bg-amber-500" cite="Calculated" />
+            <KPICard title="Solar Contribution" value="12.5" unit="%" stripe="bg-blue-500" cite="Grid Data" />
+            <KPICard title="Waste Offset" value="~150" unit="tCO2e" stripe="bg-green-500" cite="Recycling" />
+          </div>
+
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="glass-card p-6">
+              <h2 className="text-xs font-bold uppercase tracking-wider mb-6 flex justify-between items-center">
+                Campus Scope Distribution
+                <span className="src-badge">GHG Protocol</span>
+              </h2>
+              <div className="h-64 relative">
+                <canvas id="scopePie"></canvas>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-2xl font-bold text-green-400">65%</span>
+                  <span className="text-[9px] uppercase font-bold text-slate-500">Grid Energy</span>
+                </div>
+              </div>
+              <div className="mt-6 space-y-2">
+                <LegendItem label="Scope 1 (Gensets/Fuel)" value="15%" color="bg-green-500" />
+                <LegendItem label="Scope 2 (Electricity)" value="65%" color="bg-amber-500" />
+                <LegendItem label="Scope 3 (Commute/Travel)" value="20%" color="bg-red-500" />
+              </div>
+            </div>
+
+            <div className="lg:col-span-2 glass-card p-6">
+              <h2 className="text-xs font-bold uppercase tracking-wider mb-6 flex justify-between items-center">
+                Primary Campus Emission Sources
+                <span className="src-badge">Departmental Audit</span>
+              </h2>
+              <div className="h-80">
+                <canvas id="sourceBar"></canvas>
+              </div>
+            </div>
+          </div>
+
+          {/* Trend and Neutrality */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="glass-card p-6">
+              <h2 className="text-xs font-bold uppercase tracking-wider mb-6">Historical Emission Trend</h2>
+              <div className="h-64">
+                <canvas id="trendLine"></canvas>
+              </div>
+            </div>
+            <div className="glass-card p-6">
+              <h2 className="text-xs font-bold uppercase tracking-wider mb-6">Net Zero Pathway (Target 2030)</h2>
+              <div className="h-64">
+                <canvas id="neutralityLine"></canvas>
+              </div>
+            </div>
+          </div>
+
+          {/* Green Computing Footer */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-10">
+            <div className="bg-green-950/20 p-6 rounded-2xl border border-green-900/30">
+              <h3 className="text-[10px] font-bold text-green-400 uppercase tracking-widest mb-4">Actionable Campus Interventions</h3>
+              <ul className="space-y-2 text-xs text-slate-500">
+                <li>• IoT-enabled Lighting Control in Labs (15% Savings)</li>
+                <li>• Solar-PV Expansion on Building-A Rooftop</li>
+                <li>• EV-Shuttle integration for Staff Commute</li>
+              </ul>
+            </div>
+            <div className="bg-green-950/20 p-6 rounded-2xl border border-green-900/30">
+              <h3 className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-4">Engineering Benchmarks</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-xs">
+                  <p className="text-[9px] text-slate-500 uppercase font-bold">Electricity Cap</p>
+                  <p className="font-bold text-slate-200">12,000 kWh/Day</p>
+                </div>
+                <div className="text-xs">
+                  <p className="text-[9px] text-slate-500 uppercase font-bold">Tree Count</p>
+                  <p className="font-bold text-slate-200">450+ Active</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const KPICard = ({ title, value, unit, stripe, cite }) => (
+      <div className="glass-card p-6 group">
+        <div className={`kpi-stripe ${stripe}`}></div>
+        <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest mb-2 flex justify-between">
+          {title}
+          <span className="text-blue-400/50 group-hover:text-blue-400 transition-colors">{cite}</span>
+        </p>
+        <div className="flex items-baseline gap-2">
+          <h3 className="text-3xl font-bold font-syne tracking-tight">{value}</h3>
+          <span className="text-[10px] font-bold text-slate-600 uppercase">{unit}</span>
+        </div>
+      </div>
+    );
+
+    const LegendItem = ({ label, value, color }) => (
+      <div className="flex justify-between items-center text-[10px] font-bold">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${color}`}></div>
+          <span className="text-slate-500 uppercase tracking-wider">{label}</span>
+        </div>
+        <span>{value}</span>
+      </div>
+    );
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+
+</html>

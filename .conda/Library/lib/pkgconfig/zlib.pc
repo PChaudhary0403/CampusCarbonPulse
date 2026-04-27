@@ -1,0 +1,13 @@
+prefix=c:/Users/nitro/Desktop/GC_capstone/.conda/Library
+exec_prefix=c:/Users/nitro/Desktop/GC_capstone/.conda/Library
+libdir=c:/Users/nitro/Desktop/GC_capstone/.conda/Library/lib
+sharedlibdir=c:/Users/nitro/Desktop/GC_capstone/.conda/Library/lib
+includedir=c:/Users/nitro/Desktop/GC_capstone/.conda/Library/include
+
+Name: zlib
+Description: zlib compression library
+Version: 1.3.1
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lz
+Cflags: -I${includedir}

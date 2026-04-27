@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Carbon Pulse | TCET Sustainability Dashboard</title>
+    <meta name="description" content="Real-time carbon footprint monitoring and analytics for TCET Campus. Track Scope 1, 2, and 3 emissions toward Net-Zero 2030.">
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-0: #07101e;
+            --bg-1: #0d1a2e;
+            --bg-2: #112238;
+            --green-400: #6ee7a0;   /* leaf green light */
+            --green-500: #34c97a;   /* leaf green base  */
+            --green-600: #1fa85e;   /* leaf green deep  */
+            --sky-400:   #38bdf8;   /* sky blue light   */
+            --sky-500:   #0ea5e9;   /* sky blue base    */
+            --sky-600:   #0284c7;   /* sky blue deep    */
+            --teal-400: #2dd4bf;
+            --amber-400: #fbbf24;
+            --red-400: #f87171;
+            --blue-400: #38bdf8;    /* alias sky for badges */
+            --text-1: #e0f2fe;
+            --text-2: #7ab8d4;
+            --text-3: #3a6e8a;
+            --border: rgba(56,189,248,0.14);
+            --glow: rgba(56,189,248,0.18);
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-0);
+            color: var(--text-1);
+            overflow-x: hidden;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Canvas bg ── */
+        #particle-canvas {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none; z-index: 0;
+            opacity: 0.35;
+        }
+
+        #root { position: relative; z-index: 1; }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-0); }
+        ::-webkit-scrollbar-thumb { background: var(--sky-600); border-radius: 3px; }
+
+        /* ── Typography ── */
+        .syne { font-family: 'Inter', system-ui, sans-serif; font-weight: 700; letter-spacing: -0.02em; }
+        .gradient-text {
+            background: linear-gradient(135deg, #bae6fd 0%, #38bdf8 35%, #6ee7a0 70%, #34c97a 100%);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        .teal-text { color: var(--teal-400); }
+        .amber-text { color: var(--amber-400); }
+        .red-text { color: var(--red-400); }
+        .blue-text { color: var(--blue-400); }
+        .dim { color: var(--text-2); }
+        .dimmer { color: var(--text-3); }
+        .label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: var(--text-3); }
+
+        /* ── Cards ── */
+        .card {
+            background: linear-gradient(135deg, rgba(13,26,46,0.96) 0%, rgba(7,16,30,0.98) 100%);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+            position: relative; overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at top left, rgba(56,189,248,0.04) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .card:hover {
+            border-color: rgba(56,189,248,0.30);
+            box-shadow: 0 8px 40px rgba(56,189,248,0.08);
+            transform: translateY(-2px);
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px 24px; border-radius: 14px; font-weight: 700;
+            cursor: pointer; border: none; transition: all 0.2s; font-family: inherit; font-size: 14px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--sky-500) 0%, var(--green-500) 100%);
+            color: #061020;
+            box-shadow: 0 4px 20px rgba(14,165,233,0.30);
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(14,165,233,0.45);
+        }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-ghost {
+            background: rgba(255,255,255,0.04);
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { background: rgba(56,189,248,0.08); color: var(--sky-400); border-color: rgba(56,189,248,0.3); }
+        .btn-danger { background: rgba(248,113,113,0.1); color: var(--red-400); border: 1px solid rgba(248,113,113,0.2); }
+        .btn-danger:hover { background: rgba(248,113,113,0.2); }
+
+        /* ── Inputs ── */
+        .input {
+            width: 100%; padding: 12px 16px; border-radius: 12px;
+            background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+            color: var(--text-1); font-family: inherit; font-size: 14px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .input:focus { outline: none; border-color: var(--sky-500); background: rgba(56,189,248,0.05); }
+        .input::placeholder { color: var(--text-3); }
+
+        /* ── Layout ── */
+        .app-shell { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: 260px; flex-shrink: 0;
+            background: linear-gradient(180deg, rgba(8,18,35,0.99) 0%, rgba(7,14,26,0.99) 100%);
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            padding: 28px 20px;
+            position: sticky; top: 0; height: 100vh;
+            overflow-y: auto;
+        }
+        .main { flex: 1; padding: 36px 40px; overflow-y: auto; max-height: 100vh; }
+
+        /* ── Sidebar nav ── */
+        .nav-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 16px; border-radius: 12px;
+            color: var(--text-2); cursor: pointer;
+            transition: all 0.2s; font-size: 14px; font-weight: 500;
+            border: 1px solid transparent; margin-bottom: 4px;
+        }
+        .nav-item:hover { background: rgba(56,189,248,0.07); color: var(--sky-400); }
+        .nav-item.active {
+            background: linear-gradient(135deg, rgba(56,189,248,0.12), rgba(110,231,160,0.08));
+            color: var(--sky-400);
+            border-color: rgba(56,189,248,0.22);
+        }
+        .nav-icon { width: 18px; height: 18px; flex-shrink: 0; }
+
+        /* ── KPI grid ── */
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px) { .kpi-grid { grid-template-columns: 1fr; } .sidebar { display: none; } .main { padding: 20px; } }
+
+        .kpi-card {
+            padding: 24px; position: relative; overflow: hidden;
+        }
+        .kpi-icon-wrap {
+            width: 44px; height: 44px; border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 16px;
+        }
+        .kpi-value { font-family: 'Inter', system-ui, sans-serif; font-size: 30px; font-weight: 700; line-height: 1; margin-bottom: 4px; letter-spacing: -0.02em; }
+        .kpi-glow {
+            position: absolute; right: -20px; top: -20px;
+            width: 80px; height: 80px; border-radius: 50%;
+            filter: blur(30px); opacity: 0.4;
+        }
+
+        /* ── Scope badges ── */
+        .scope-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; border-radius: 8px;
+            font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+        }
+        .scope-1 { background: rgba(251,191,36,0.12); color: var(--amber-400); border: 1px solid rgba(251,191,36,0.2); }
+        .scope-2 { background: rgba(96,165,250,0.12); color: var(--blue-400); border: 1px solid rgba(96,165,250,0.2); }
+        .scope-3 { background: rgba(45,212,191,0.12); color: var(--teal-400); border: 1px solid rgba(45,212,191,0.2); }
+
+        /* ── Charts grid ── */
+        .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 24px; }
+        @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
+
+        /* ── Progress bar ── */
+        .progress-track {
+            height: 8px; background: rgba(255,255,255,0.06);
+            border-radius: 99px; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; border-radius: 99px;
+            transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+        }
+
+        /* ── Table ── */
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th { padding: 14px 20px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-3); background: rgba(255,255,255,0.025); }
+        .data-table td { padding: 14px 20px; font-size: 13px; border-top: 1px solid rgba(255,255,255,0.03); transition: background 0.15s; }
+        .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+        /* ── Animations ── */
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse-ring { 0% { transform: scale(0.5); opacity: 0; } 50% { opacity: 0.6; } 100% { transform: scale(1.5); opacity: 0; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+        @keyframes countUp { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+        @keyframes glowPulse { 0%,100% { opacity: 0.3; } 50% { opacity: 0.7; } }
+
+        .fade-up { animation: fadeUp 0.6s cubic-bezier(0.2,0.8,0.2,1) forwards; }
+        .delay-1 { animation-delay: 0.1s; opacity: 0; }
+        .delay-2 { animation-delay: 0.2s; opacity: 0; }
+        .delay-3 { animation-delay: 0.3s; opacity: 0; }
+        .delay-4 { animation-delay: 0.4s; opacity: 0; }
+
+        .live-dot { position: relative; display: inline-block; width: 8px; height: 8px; }
+        .live-dot-inner { width: 8px; height: 8px; background: var(--sky-500); border-radius: 50%; position: relative; z-index: 1; }
+        .live-dot-ring { position: absolute; inset: -4px; background: var(--sky-500); border-radius: 50%; animation: pulse-ring 2s infinite; }
+
+        .co2-preview {
+            background: linear-gradient(135deg, rgba(56,189,248,0.07), rgba(110,231,160,0.04));
+            border: 1px solid rgba(56,189,248,0.18);
+            border-radius: 16px; padding: 20px;
+            transition: all 0.3s;
+        }
+        .co2-preview:has(.preview-active) { border-color: rgba(56,189,248,0.4); box-shadow: 0 0 30px rgba(56,189,248,0.1); }
+
+        .tab { padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; color: var(--text-3); }
+        .tab.active { background: rgba(56,189,248,0.15); color: var(--sky-400); }
+        .tab:hover:not(.active) { color: var(--text-2); }
+
+        /* Login */
+        .login-wrap {
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(ellipse at 20% 50%, rgba(56,189,248,0.08) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 20%, rgba(110,231,160,0.05) 0%, transparent 50%),
+                        var(--bg-0);
+            padding: 24px;
+        }
+        .login-card {
+            width: 100%; max-width: 440px;
+            background: linear-gradient(135deg, rgba(10,20,40,0.97) 0%, rgba(7,14,28,0.99) 100%);
+            border: 1px solid rgba(56,189,248,0.18);
+            border-radius: 28px;
+            padding: 48px 40px;
+            position: relative; overflow: hidden;
+            animation: fadeUp 0.7s cubic-bezier(0.2,0.8,0.2,1) forwards;
+        }
+        .login-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--sky-500), var(--green-400), transparent);
+        }
+        .login-card::after {
+            content: ''; position: absolute;
+            top: -80px; left: -80px; width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(56,189,248,0.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .toast { position: fixed; bottom: 28px; right: 28px; z-index: 999; padding: 14px 22px; border-radius: 14px; font-size: 13px; font-weight: 600; animation: fadeUp 0.4s ease; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        .toast-success { background: rgba(56,189,248,0.15); border: 1px solid rgba(56,189,248,0.3); color: var(--sky-400); }
+        .toast-error { background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3); color: var(--red-400); }
+
+        .section-title { font-family: 'Inter', system-ui, sans-serif; font-size: 16px; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; letter-spacing: -0.01em; }
+        .divider { height: 1px; background: linear-gradient(90deg, var(--border), transparent); margin: 24px 0; }
+
+        .net-zero-track { position: relative; }
+        .track-marker { position: absolute; top: -20px; transform: translateX(-50%); font-size: 10px; font-weight: 700; color: var(--text-3); white-space: nowrap; }
+        .track-marker::after { content: ''; position: absolute; left: 50%; top: 18px; width: 1px; height: 8px; background: var(--text-3); }
+
+        .breakdown-bar { display: flex; height: 10px; border-radius: 99px; overflow: hidden; gap: 2px; }
+        .breakdown-seg { transition: width 1.2s cubic-bezier(0.4,0,0.2,1); border-radius: 99px; }
+    </style>
+</head>
+<body>
+
+<canvas id="particle-canvas"></canvas>
+<div id="root"></div>
+
+<script>
+// Particle background
+(function() {
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
+    let w, h, particles = [];
+    const resize = () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; };
+    resize();
+    window.addEventListener('resize', resize);
+    for (let i = 0; i < 60; i++) {
+        particles.push({ x: Math.random()*2000, y: Math.random()*1200, r: Math.random()*1.5+0.3, vx: (Math.random()-0.5)*0.2, vy: (Math.random()-0.5)*0.15, o: Math.random()*0.5+0.1 });
+    }
+    function draw() {
+        ctx.clearRect(0,0,w,h);
+        particles.forEach(p => {
+            p.x += p.vx; p.y += p.vy;
+            if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
+            if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+            // Alternate particles between sky-blue and leaf-green
+            ctx.fillStyle = (Math.floor(p.o*10)%2===0) ? `rgba(56,189,248,${p.o})` : `rgba(110,231,160,${p.o*0.7})`;
+            ctx.fill();
+        });
+        // Draw connecting lines
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i+1; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const dist = Math.sqrt(dx*dx+dy*dy);
+                if (dist < 120) {
+                    ctx.beginPath();
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.strokeStyle = `rgba(56,189,248,${0.07*(1-dist/120)})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+            }
+        }
+        requestAnimationFrame(draw);
+    }
+    draw();
+})();
+</script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+const API_BASE = (window.location.origin === "null" || window.location.protocol === "file:") ? "http://localhost:8000/api" : "/api";
+
+// ─── SVG Icons ─────────────────────────────────────────────────────────────
+const icons = {
+    leaf: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>,
+    dashboard: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
+    chart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+    plus: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+    trash: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>,
+    zap: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+    car: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>,
+    leaf2: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s-8-3-8-11c0-4 3-7 8-7s8 3 8 7c0 8-8 11-8 11z"/></svg>,
+    activity: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
+    database: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>,
+    target: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+    logout: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+    user: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+    lock: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+    arrow: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
+    refresh: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>,
+};
+const Icon = ({ n, size = 16, style = {} }) => <span style={{ display: 'inline-flex', width: size, height: size, flexShrink:0, ...style }}>{icons[n]}</span>;
+
+// ─── Animated counter ─────────────────────────────────────────────────────
+function useCountUp(target, duration = 1200, decimals = 2) {
+    const [val, setVal] = useState(0);
+    const ref = useRef(null);
+    useEffect(() => {
+        if (ref.current) cancelAnimationFrame(ref.current);
+        const start = performance.now();
+        const from = 0;
+        const animate = (now) => {
+            const t = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - t, 3);
+            setVal(from + (target - from) * eased);
+            if (t < 1) ref.current = requestAnimationFrame(animate);
+        };
+        ref.current = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(ref.current);
+    }, [target]);
+    return decimals > 0 ? val.toFixed(decimals) : Math.round(val);
+}
+
+// ─── Toast ───────────────────────────────────────────────────────────────
+let _toastFn = null;
+const Toast = () => {
+    const [toast, setToast] = useState(null);
+    _toastFn = (msg, type) => { setToast({msg, type}); setTimeout(() => setToast(null), 3500); };
+    if (!toast) return null;
+    return <div className={`toast toast-${toast.type}`}>{toast.msg}</div>;
+};
+const showToast = (msg, type='success') => _toastFn && _toastFn(msg, type);
+
+// ─── KPI Card ─────────────────────────────────────────────────────────────
+const KpiCard = ({ label, value, unit, sub, iconName, glowColor, textColor, delay }) => {
+    const animated = useCountUp(parseFloat(value) || 0, 1400, Number.isInteger(parseFloat(value)) ? 0 : 1);
+    return (
+        <div className={`card kpi-card fade-up delay-${delay}`}>
+            <div className="kpi-glow" style={{ background: glowColor }}></div>
+            <div className="kpi-icon-wrap" style={{ background: `${glowColor}30` }}>
+                <Icon n={iconName} size={20} style={{ color: textColor }} />
+            </div>
+            <span className="label">{label}</span>
+            <div className="kpi-value" style={{ color: textColor, marginTop:6 }}>
+                {animated} <span style={{ fontSize:13, fontWeight:400, color:'var(--text-3)', fontFamily:'Space Grotesk' }}>{unit}</span>
+            </div>
+            <div className="dim" style={{ fontSize:11, marginTop:4 }}>{sub}</div>
+        </div>
+    );
+};
+
+// ─── Chart helpers ────────────────────────────────────────────────────────
+const CHART_DEFAULTS = {
+    color: (ctx, from, to) => {
+        const g = ctx.createLinearGradient(0,0,0,300);
+        g.addColorStop(0, from); g.addColorStop(1, to); return g;
+    }
+};
+
+// ─── Login Page ───────────────────────────────────────────────────────────
+const LoginPage = ({ onLogin }) => {
+    const [mode, setMode] = useState('login');
+    const [form, setForm] = useState({ username:'', password:'' });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const submit = async (e) => {
+        e.preventDefault(); setLoading(true); setError('');
+        const ep = mode === 'register' ? '/register' : '/login';
+        try {
+            const res = await fetch(`${API_BASE}${ep}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                if (mode === 'register') { setMode('login'); showToast('Account created! Please sign in.'); }
+                else onLogin(data.username);
+            } else { setError(data.detail || 'Authentication failed'); }
+        } catch(e) { setError('Cannot connect to server. Is it running?'); }
+        finally { setLoading(false); }
+    };
+
+    return (
+        <div className="login-wrap">
+            <div className="login-card">
+                <div style={{ textAlign:'center', marginBottom:40 }}>
+                    <div style={{ width:64, height:64, borderRadius:20, background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px' }}>
+                        <Icon n="leaf" size={28} style={{ color:'var(--sky-400)' }} />
+                    </div>
+                    <h1 className="syne gradient-text" style={{ fontSize:32, fontWeight:800, marginBottom:6 }}>
+                        {mode === 'register' ? 'Join the Pulse' : 'Carbon Pulse'}
+                    </h1>
+                    <p className="label" style={{ letterSpacing:'0.25em' }}>TCET Sustainability Monitor</p>
+                </div>
+                <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:18 }}>
+                    <div>
+                        <div className="label" style={{ marginBottom:8 }}>Username</div>
+                        <div style={{ position:'relative' }}>
+                            <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'var(--text-3)' }}><Icon n="user" size={16}/></span>
+                            <input id="login-username" className="input" required style={{ paddingLeft:40 }} placeholder="e.g. admin_tcet" value={form.username} onChange={e => setForm({...form, username: e.target.value})} />
+                        </div>
+                    </div>
+                    <div>
+                        <div className="label" style={{ marginBottom:8 }}>Password</div>
+                        <div style={{ position:'relative' }}>
+                            <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'var(--text-3)' }}><Icon n="lock" size={16}/></span>
+                            <input id="login-password" className="input" type="password" required style={{ paddingLeft:40 }} placeholder="••••••••" value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
+                        </div>
+                    </div>
+                    {error && <div style={{ padding:'12px 16px', background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.2)', borderRadius:12, color:'var(--red-400)', fontSize:13 }}>{error}</div>}
+                    <button id="login-submit" className="btn btn-primary" type="submit" disabled={loading} style={{ marginTop:4 }}>
+                        {loading ? 'Please wait...' : mode === 'register' ? 'Create Account' : 'Access Dashboard'}
+                        <Icon n="arrow" size={16}/>
+                    </button>
+                </form>
+                <div className="divider" style={{ margin:'28px 0 20px' }}></div>
+                <p style={{ textAlign:'center', fontSize:12, color:'var(--text-3)' }}>
+                    {mode === 'login' ? 'Need admin access? ' : 'Already registered? '}
+                    <span onClick={() => setMode(mode === 'login' ? 'register' : 'login')} style={{ color:'var(--green-400)', cursor:'pointer', fontWeight:600 }}>
+                        {mode === 'login' ? 'Register here' : 'Sign in'}
+                    </span>
+                </p>
+            </div>
+            <Toast />
+        </div>
+    );
+};
+
+// ─── Main Dashboard ───────────────────────────────────────────────────────
+const Dashboard = ({ user, onLogout }) => {
+    const [stats, setStats] = useState({ total_co2: 0, avg_co2: 0, count: 0 });
+    const [records, setRecords] = useState([]);
+    const [activeView, setActiveView] = useState('overview');
+    const [form, setForm] = useState({ electricity:'', transport:'', waste:'' });
+    const [submitting, setSubmitting] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [chartType, setChartType] = useState('line');
+    const lineRef = useRef(null); const donutRef = useRef(null); const barRef = useRef(null);
+    const lineChart = useRef(null); const donutChart = useRef(null); const barChart = useRef(null);
+
+    // Live CO2 preview
+    const previewCO2 = () => {
+        const e = parseFloat(form.electricity) || 0;
+        const t = parseFloat(form.transport) || 0;
+        const w = parseFloat(form.waste) || 0;
+        return { elec: e*0.82, trans: t*0.21, waste: w*0.5, total: e*0.82 + t*0.21 + w*0.5 };
+    };
+    const preview = previewCO2();
+    const hasPreview = preview.total > 0;
+
+    const loadData = useCallback(async (quiet=false) => {
+        if (!quiet) setRefreshing(true);
+        try {
+            const [rs, rr] = await Promise.all([fetch(`${API_BASE}/stats`), fetch(`${API_BASE}/emissions`)]);
+            const s = await rs.json(); const r = await rr.json();
+            setStats(s);
+            setRecords([...r].sort((a,b) => new Date(b.date) - new Date(a.date)));
+        } catch(e) { showToast('Connection error', 'error'); }
+        finally { setRefreshing(false); }
+    }, []);
+
+    useEffect(() => { loadData(); }, []);
+
+    // Build / update charts whenever records change
+    useEffect(() => {
+        if (!records.length) return;
+        const sorted = [...records].sort((a,b) => new Date(a.date) - new Date(b.date));
+        buildLineChart(sorted);
+        buildDonutChart(sorted);
+        buildBarChart(sorted);
+    }, [records, chartType]);
+
+    const buildLineChart = (data) => {
+        const ctx = lineRef.current; if(!ctx) return;
+        if(lineChart.current) lineChart.current.destroy();
+        const grad = ctx.getContext('2d').createLinearGradient(0,0,0,320);
+        grad.addColorStop(0,'rgba(56,189,248,0.22)'); grad.addColorStop(1,'rgba(56,189,248,0)');
+        lineChart.current = new Chart(ctx, {
+            type: chartType === 'bar' ? 'bar' : 'line',
+            data: {
+                labels: data.map(d => new Date(d.date).toLocaleDateString('en-IN',{month:'short',day:'numeric'})),
+                datasets: [{
+                    label: 'Total CO2 (kg)',
+                    data: data.map(d => d.total_co2),
+                    borderColor: '#38bdf8', borderWidth: 2.5,
+                    backgroundColor: chartType === 'bar' ? 'rgba(56,189,248,0.22)' : grad,
+                    fill: chartType !== 'bar',
+                    tension: 0.45,
+                    pointRadius: 5, pointHoverRadius: 8,
+                    pointBackgroundColor: '#38bdf8',
+                    pointBorderColor: '#07101e', pointBorderWidth: 2,
+                    hoverBackgroundColor: chartType === 'bar' ? 'rgba(56,189,248,0.45)' : undefined,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: { duration: 900 },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(7,16,30,0.95)', borderColor: 'rgba(56,189,248,0.3)', borderWidth: 1,
+                        titleColor: '#38bdf8', bodyColor: '#e0f2fe', padding: 14, cornerRadius: 12,
+                        callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(1)} kgCO2e` }
+                    }
+                },
+                scales: {
+                    y: { grid: { color:'rgba(255,255,255,0.04)' }, ticks: { color:'#3a6e8a', font:{size:11} }, border: { display:false } },
+                    x: { grid: { display:false }, ticks: { color:'#3a6e8a', font:{size:11} }, border: { display:false } }
+                }
+            }
+        });
+    };
+
+    const buildDonutChart = (data) => {
+        const ctx = donutRef.current; if(!ctx) return;
+        if(donutChart.current) donutChart.current.destroy();
+        const elec = data.reduce((s,r) => s+r.electricity*0.82, 0);
+        const trans = data.reduce((s,r) => s+r.transport*0.21, 0);
+        const waste = data.reduce((s,r) => s+r.waste*0.5, 0);
+        donutChart.current = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Electricity (Scope 2)', 'Transport (Scope 3)', 'Waste (Scope 1)'],
+                datasets: [{ data: [elec, trans, waste], backgroundColor: ['rgba(56,189,248,0.85)','rgba(45,212,191,0.8)','rgba(251,191,36,0.8)'], borderColor: '#0d1a2e', borderWidth: 3, hoverOffset: 8 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '72%',
+                animation: { animateRotate: true, duration: 1000 },
+                plugins: {
+                    legend: { position: 'bottom', labels: { color:'#7ab8d4', font:{size:11, family:'Inter'}, padding:16, boxWidth:10, boxHeight:10, borderRadius: 4, useBorderRadius: true } },
+                    tooltip: { backgroundColor:'rgba(7,16,30,0.95)', borderColor:'rgba(56,189,248,0.3)', borderWidth:1, titleColor:'#38bdf8', bodyColor:'#e0f2fe', padding:14, cornerRadius:12, callbacks: { label: ctx => ` ${ctx.parsed.toFixed(1)} kgCO2e` } }
+                }
+            }
+        });
+    };
+
+    const buildBarChart = (data) => {
+        const ctx = barRef.current; if(!ctx) return;
+        if(barChart.current) barChart.current.destroy();
+        barChart.current = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.slice(-6).map(d => new Date(d.date).toLocaleDateString('en-IN',{month:'short',day:'numeric'})),
+                datasets: [
+                    { label:'Electricity', data: data.slice(-6).map(d => d.electricity*0.82), backgroundColor:'rgba(96,165,250,0.7)', borderRadius:6, borderSkipped:false },
+                    { label:'Transport',   data: data.slice(-6).map(d => d.transport*0.21),   backgroundColor:'rgba(45,212,191,0.7)', borderRadius:6, borderSkipped:false },
+                    { label:'Waste',       data: data.slice(-6).map(d => d.waste*0.5),         backgroundColor:'rgba(251,191,36,0.7)',  borderRadius:6, borderSkipped:false },
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: { duration: 900 },
+                plugins: { legend: { position:'bottom', labels:{ color:'#7aada0', font:{size:11,family:'Inter'}, boxWidth:10, boxHeight:10, padding:14, borderRadius:4, useBorderRadius:true } }, tooltip: { backgroundColor:'rgba(7,16,21,0.95)', borderColor:'rgba(34,197,94,0.3)', borderWidth:1, titleColor:'#4ade80', bodyColor:'#e8f5e9', padding:14, cornerRadius:12 } },
+                scales: {
+                    x: { stacked:true, grid:{display:false}, ticks:{color:'#3d6b5e', font:{size:11}}, border:{display:false} },
+                    y: { stacked:true, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#3d6b5e', font:{size:11}}, border:{display:false} }
+                }
+            }
+        });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault(); setSubmitting(true);
+        try {
+            const res = await fetch(`${API_BASE}/emissions`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ dept_electricity: parseFloat(form.electricity), student_commute: parseFloat(form.transport), canteen_waste: parseFloat(form.waste) })
+            });
+            if(res.ok) { showToast('✅ Emission record logged successfully!'); setForm({electricity:'',transport:'',waste:''}); loadData(true); }
+            else showToast('Failed to log record', 'error');
+        } catch(e) { showToast('Connection error', 'error'); }
+        finally { setSubmitting(false); }
+    };
+
+    const handleDelete = async (id) => {
+        if(!confirm('Delete this emission record?')) return;
+        try {
+            const res = await fetch(`${API_BASE}/emissions/${id}`, {method:'DELETE'});
+            if(res.ok) { showToast('Record deleted.'); loadData(true); }
+        } catch { showToast('Delete failed.','error'); }
+    };
+
+    // Net-Zero progress (arbitrary goal = 40000 kgCO₂e / year)
+    const nzGoal = 40000;
+    const nzPct = Math.min((stats.total_co2 / nzGoal) * 100, 100);
+
+    const elecPct = stats.total_co2 > 0 ? records.reduce((s,r)=>s+r.electricity*0.82,0)/stats.total_co2*100 : 0;
+    const transPct = stats.total_co2 > 0 ? records.reduce((s,r)=>s+r.transport*0.21,0)/stats.total_co2*100 : 0;
+    const wastePct = 100 - elecPct - transPct;
+
+    return (
+        <div className="app-shell">
+            {/* Sidebar */}
+            <aside className="sidebar">
+                <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:36 }}>
+                    <div style={{ width:40, height:40, borderRadius:14, background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.22)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <Icon n="leaf" size={20} style={{ color:'var(--sky-400)' }}/>
+                    </div>
+                    <div>
+                        <div className="syne" style={{ fontSize:16, fontWeight:800, lineHeight:1 }}>TCET Pulse</div>
+                        <div style={{ fontSize:10, color:'var(--text-3)', fontWeight:600, letterSpacing:'0.1em' }}>SUSTAINABILITY</div>
+                    </div>
+                </div>
+                <div className="label" style={{ marginBottom:12 }}>Navigation</div>
+                <nav style={{ display:'flex', flexDirection:'column', flex:1 }}>
+                    {[
+                        { id:'overview', label:'Overview', icon:'dashboard' },
+                        { id:'analytics', label:'Analytics', icon:'chart' },
+                        { id:'log', label:'Log Entry', icon:'plus' },
+                    ].map(item => (
+                        <div key={item.id} className={`nav-item ${activeView===item.id?'active':''}`} onClick={()=>setActiveView(item.id)}>
+                            <span className="nav-icon"><Icon n={item.icon} size={16}/></span>
+                            {item.label}
+                        </div>
+                    ))}
+                </nav>
+                {/* Net-Zero Tracker */}
+                <div className="card" style={{ padding:18, marginBottom:20 }}>
+                    <div className="label" style={{ marginBottom:10, display:'flex', alignItems:'center', gap:6 }}>
+                        <Icon n="target" size={11} style={{ color:'var(--green-400)' }}/> Net-Zero 2030
+                    </div>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:8 }}>
+                        <span style={{ fontSize:20, fontWeight:700, fontFamily:'Syne', color: nzPct > 80 ? 'var(--red-400)' : nzPct > 50 ? 'var(--amber-400)' : 'var(--green-400)' }}>{nzPct.toFixed(1)}%</span>
+                        <span className="dimmer" style={{ fontSize:11 }}>of annual budget</span>
+                    </div>
+                    <div className="progress-track">
+                        <div className="progress-fill" style={{ width:`${nzPct}%`, background: nzPct > 80 ? 'linear-gradient(90deg,#f87171,#ef4444)' : nzPct > 50 ? 'linear-gradient(90deg,#fbbf24,#f59e0b)' : 'linear-gradient(90deg,#4ade80,#22c55e)' }}></div>
+                    </div>
+                    <div className="dimmer" style={{ fontSize:10, marginTop:6 }}>{stats.total_co2.toFixed(1)} / {nzGoal.toLocaleString()} kgCO2e</div>
+                </div>
+                {/* User card */}
+                <div className="card" style={{ padding:16 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                        <div style={{ width:38, height:38, borderRadius:12, background:'linear-gradient(135deg,#38bdf8,#0ea5e9)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:800, color:'#061020', flexShrink:0 }}>
+                            {user[0].toUpperCase()}
+                        </div>
+                        <div style={{ flex:1, overflow:'hidden' }}>
+                            <div style={{ fontSize:13, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user}</div>
+                            <div className="label" style={{ marginTop:2 }}>Administrator</div>
+                        </div>
+                        <button id="logout-btn" className="btn btn-danger" style={{ padding:'8px 10px', borderRadius:10 }} onClick={onLogout}>
+                            <Icon n="logout" size={14}/>
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            {/* Main content */}
+            <main className="main">
+                {/* Header */}
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:32 }}>
+                    <div>
+                        <h1 className="syne gradient-text" style={{ fontSize:30, fontWeight:800, lineHeight:1.1 }}>
+                            {activeView === 'overview' && 'Campus Overview'}
+                            {activeView === 'analytics' && 'Deep Analytics'}
+                            {activeView === 'log' && 'Log Emission Entry'}
+                        </h1>
+                        <p className="dim" style={{ fontSize:13, marginTop:6 }}>Real-time carbon footprint monitoring for TCET Campus</p>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                        <button id="refresh-btn" className="btn btn-ghost" style={{ padding:'9px 14px' }} onClick={() => loadData()} disabled={refreshing}>
+                            <Icon n="refresh" size={15} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }}/>
+                            {refreshing ? 'Syncing…' : 'Refresh'}
+                        </button>
+                        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 16px', background:'rgba(56,189,248,0.06)', border:'1px solid rgba(56,189,248,0.16)', borderRadius:12 }}>
+                            <div className="live-dot"><div className="live-dot-inner"></div><div className="live-dot-ring"></div></div>
+                            <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.15em', color:'var(--text-3)', textTransform:'uppercase' }}>Live</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ═══ OVERVIEW ═══════════════════════════════════════════ */}
+                {activeView === 'overview' && (<>
+                    {/* KPI row */}
+                    <div className="kpi-grid">
+                        <KpiCard delay={1} label="Cumulative Footprint" value={stats.total_co2} unit="kgCO2e" sub="Total campus load" iconName="activity" glowColor="rgba(34,197,94,1)" textColor="var(--green-400)"/>
+                        <KpiCard delay={2} label="Average Emission" value={stats.avg_co2} unit="kgCO2e" sub="Per data point" iconName="zap" glowColor="rgba(45,212,191,1)" textColor="var(--teal-400)"/>
+                        <KpiCard delay={3} label="Audit Records" value={stats.count} unit="entries" sub="Verified data points" iconName="database" glowColor="rgba(96,165,250,1)" textColor="var(--blue-400)"/>
+                        <KpiCard delay={4} label="Budget Used" value={nzPct} unit="%" sub="Of '30 Net-Zero target" iconName="target" glowColor="rgba(251,191,36,1)" textColor="var(--amber-400)"/>
+                    </div>
+
+                    {/* Scope breakdown stripe */}
+                    <div className="card fade-up delay-2" style={{ padding:'20px 24px', marginBottom:24, display:'flex', alignItems:'center', gap:24, flexWrap:'wrap' }}>
+                        <span className="label" style={{ flexShrink:0 }}>Emission Breakdown</span>
+                        <div style={{ flex:1, minWidth:200 }}>
+                            <div className="breakdown-bar">
+                                <div className="breakdown-seg" style={{ width:`${elecPct}%`, background:'var(--blue-400)', minWidth: elecPct>0?4:0 }}></div>
+                                <div className="breakdown-seg" style={{ width:`${transPct}%`, background:'var(--teal-400)', minWidth: transPct>0?4:0 }}></div>
+                                <div className="breakdown-seg" style={{ width:`${wastePct}%`, background:'var(--amber-400)', minWidth: wastePct>0?4:0 }}></div>
+                            </div>
+                        </div>
+                        <div style={{ display:'flex', gap:12, flexShrink:0 }}>
+                            <span className="scope-badge scope-2"><Icon n="zap" size={10}/> Elec {elecPct.toFixed(0)}%</span>
+                            <span className="scope-badge scope-3"><Icon n="car" size={10}/> Trans {transPct.toFixed(0)}%</span>
+                            <span className="scope-badge scope-1"><Icon n="leaf2" size={10}/> Waste {wastePct.toFixed(0)}%</span>
+                        </div>
+                    </div>
+
+                    {/* Charts row */}
+                    <div className="charts-row">
+                        <div className="card fade-up delay-3" style={{ padding:'24px 28px' }}>
+                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+                                <div className="section-title" style={{ margin:0 }}>
+                                    <Icon n="activity" size={16} style={{ color:'var(--green-400)' }}/> Emissions Timeline
+                                </div>
+                                <div style={{ display:'flex', gap:6 }}>
+                                    {['line','bar'].map(t => (
+                                        <span key={t} className={`tab ${chartType===t?'active':''}`} onClick={() => setChartType(t)}>{t.charAt(0).toUpperCase()+t.slice(1)}</span>
+                                    ))}
+                                </div>
+                            </div>
+                            <div style={{ height:300, position:'relative' }}><canvas ref={lineRef}></canvas></div>
+                        </div>
+                        <div className="card fade-up delay-4" style={{ padding:'24px 28px' }}>
+                            <div className="section-title"><Icon n="chart" size={16} style={{ color:'var(--teal-400)' }}/> Scope Split</div>
+                            <div style={{ height:270, position:'relative' }}><canvas ref={donutRef}></canvas></div>
+                        </div>
+                    </div>
+
+                    {/* Recent records table */}
+                    <div className="card" style={{ overflow:'hidden' }}>
+                        <div style={{ padding:'20px 24px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                            <div className="section-title" style={{ margin:0 }}><Icon n="database" size={16} style={{ color:'var(--blue-400)' }}/> Recent Records</div>
+                            <span className="label">{records.length} entries</span>
+                        </div>
+                        <div style={{ overflowX:'auto' }}>
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date & Time</th>
+                                        <th>Electricity</th>
+                                        <th>Transport</th>
+                                        <th>Waste</th>
+                                        <th>Total CO₂</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {records.slice(0,8).map(r => (
+                                        <tr key={r.id}>
+                                            <td style={{ fontWeight:500 }}>{new Date(r.date).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}</td>
+                                            <td><span style={{ color:'var(--blue-400)' }}>{r.electricity}</span> <span className="dimmer" style={{ fontSize:10 }}>kWh</span></td>
+                                            <td><span style={{ color:'var(--teal-400)' }}>{r.transport}</span> <span className="dimmer" style={{ fontSize:10 }}>km</span></td>
+                                            <td><span style={{ color:'var(--amber-400)' }}>{r.waste}</span> <span className="dimmer" style={{ fontSize:10 }}>kg</span></td>
+                                            <td><span style={{ color:'var(--green-400)', fontWeight:700, fontFamily:'Syne', fontSize:15 }}>{r.total_co2.toFixed(1)}</span> <span className="dimmer" style={{ fontSize:10 }}>kg</span></td>
+                                            <td>
+                                                <button id={`delete-${r.id}`} className="btn btn-danger" style={{ padding:'6px 10px', borderRadius:8, fontSize:12 }} onClick={() => handleDelete(r.id)}>
+                                                    <Icon n="trash" size={13}/>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {records.length === 0 && (
+                                        <tr><td colSpan="6" style={{ textAlign:'center', padding:'40px 0', color:'var(--text-3)' }}>No records yet. Log your first entry!</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>)}
+
+                {/* ═══ ANALYTICS ═══════════════════════════════════════════ */}
+                {activeView === 'analytics' && (<>
+                    <div className="kpi-grid">
+                        <KpiCard delay={1} label="Scope 1 (Waste)" value={records.reduce((s,r)=>s+r.waste*0.5,0).toFixed(1)} unit="kgCO2e" sub="Canteen waste emissions" iconName="leaf2" glowColor="rgba(251,191,36,1)" textColor="var(--amber-400)"/>
+                        <KpiCard delay={2} label="Scope 2 (Elec)" value={records.reduce((s,r)=>s+r.electricity*0.82,0).toFixed(1)} unit="kgCO2e" sub="Grid electricity emissions" iconName="zap" glowColor="rgba(96,165,250,1)" textColor="var(--blue-400)"/>
+                        <KpiCard delay={3} label="Scope 3 (Trans)" value={records.reduce((s,r)=>s+r.transport*0.21,0).toFixed(1)} unit="kgCO2e" sub="Commute & travel emissions" iconName="car" glowColor="rgba(45,212,191,1)" textColor="var(--teal-400)"/>
+                        <KpiCard delay={4} label="Peak Record" value={records.length ? Math.max(...records.map(r=>r.total_co2)).toFixed(1) : 0} unit="kgCO2e" sub="Highest single emission" iconName="activity" glowColor="rgba(248,113,113,1)" textColor="var(--red-400)"/>
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:24 }}>
+                        <div className="card fade-up delay-2" style={{ padding:'24px 28px' }}>
+                            <div className="section-title"><Icon n="chart" size={16} style={{ color:'var(--teal-400)' }}/> Scope Distribution</div>
+                            <div style={{ height:300, position:'relative' }}><canvas ref={donutRef}></canvas></div>
+                        </div>
+                        <div className="card fade-up delay-3" style={{ padding:'24px 28px' }}>
+                            <div className="section-title"><Icon n="chart" size={16} style={{ color:'var(--blue-400)' }}/> Stacked Breakdown (Last 6)</div>
+                            <div style={{ height:300, position:'relative' }}><canvas ref={barRef}></canvas></div>
+                        </div>
+                    </div>
+                    {/* Full table */}
+                    <div className="card" style={{ overflow:'hidden' }}>
+                        <div style={{ padding:'20px 24px', borderBottom:'1px solid var(--border)' }}>
+                            <div className="section-title" style={{ margin:0 }}>All Records</div>
+                        </div>
+                        <div style={{ overflowX:'auto' }}>
+                            <table className="data-table">
+                                <thead><tr><th>#</th><th>Date</th><th>Electricity (kWh)</th><th>Transport (km)</th><th>Waste (kg)</th><th>Scope 2 CO₂</th><th>Scope 3 CO₂</th><th>Scope 1 CO₂</th><th>Total CO₂</th><th></th></tr></thead>
+                                <tbody>
+                                    {records.map((r,i) => (
+                                        <tr key={r.id}>
+                                            <td className="dimmer" style={{ fontSize:11 }}>{records.length - i}</td>
+                                            <td style={{ fontWeight:500, fontSize:12 }}>{new Date(r.date).toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'})}</td>
+                                            <td className="blue-text">{r.electricity}</td>
+                                            <td className="teal-text">{r.transport}</td>
+                                            <td className="amber-text">{r.waste}</td>
+                                            <td className="dim" style={{ fontSize:12 }}>{(r.electricity*0.82).toFixed(1)}</td>
+                                            <td className="dim" style={{ fontSize:12 }}>{(r.transport*0.21).toFixed(1)}</td>
+                                            <td className="dim" style={{ fontSize:12 }}>{(r.waste*0.5).toFixed(1)}</td>
+                                            <td><span style={{ color:'var(--green-400)', fontWeight:700, fontFamily:'Syne' }}>{r.total_co2.toFixed(2)}</span></td>
+                                            <td><button className="btn btn-danger" style={{ padding:'6px 10px', borderRadius:8 }} onClick={()=>handleDelete(r.id)}><Icon n="trash" size={13}/></button></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>)}
+
+                {/* ═══ LOG ENTRY ═══════════════════════════════════════════ */}
+                {activeView === 'log' && (
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24, maxWidth:900 }}>
+                        <div className="card fade-up delay-1" style={{ padding:32 }}>
+                            <div className="section-title"><Icon n="plus" size={16} style={{ color:'var(--green-400)' }}/> New Emission Entry</div>
+                            <form id="log-form" onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:20 }}>
+                                {[
+                                    { key:'electricity', label:'Department Electricity', placeholder:'e.g. 4500', unit:'kWh', icon:'zap', scope:'Scope 2', color:'var(--blue-400)' },
+                                    { key:'transport', label:'Student Commute Distance', placeholder:'e.g. 1200', unit:'km', icon:'car', scope:'Scope 3', color:'var(--teal-400)' },
+                                    { key:'waste', label:'Canteen Waste Generated', placeholder:'e.g. 450', unit:'kg', icon:'leaf2', scope:'Scope 1', color:'var(--amber-400)' },
+                                ].map(f => (
+                                    <div key={f.key}>
+                                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                                            <label className="label" style={{ display:'flex', alignItems:'center', gap:5 }}><Icon n={f.icon} size={11} style={{ color:f.color }}/>{f.label}</label>
+                                            <span className={`scope-badge scope-${f.scope.split(' ')[1]}`} style={{ fontSize:9 }}>{f.scope}</span>
+                                        </div>
+                                        <div style={{ position:'relative' }}>
+                                            <input id={`log-${f.key}`} className="input" type="number" step="any" min="0" required value={form[f.key]} onChange={e => setForm({...form, [f.key]: e.target.value})} placeholder={f.placeholder}/>
+                                            <span style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', fontSize:10, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.1em' }}>{f.unit}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button id="log-submit" className="btn btn-primary" type="submit" disabled={submitting} style={{ marginTop:8 }}>
+                                    {submitting ? 'Recording...' : 'Log Emission Record'}
+                                    <Icon n="arrow" size={16}/>
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* Live calculator preview */}
+                        <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+                            <div className={`co2-preview fade-up delay-2`}>
+                                <div className="label" style={{ marginBottom:16 }}>🔴 Live CO₂ Calculator Preview</div>
+                                <div style={{ textAlign:'center', marginBottom:24 }}>
+                                    <div className="syne" style={{ fontSize:48, fontWeight:800, color: hasPreview ? 'var(--green-400)' : 'var(--text-3)', transition:'color 0.3s', lineHeight:1 }}>
+                                        {hasPreview ? preview.total.toFixed(2) : '—'}
+                                    </div>
+                                    <div className="dim" style={{ fontSize:13, marginTop:4 }}>kgCO₂ equivalent</div>
+                                </div>
+                                {[
+                                    { label:'Electricity (×0.82)', value: preview.elec, color:'var(--blue-400)', pct: preview.total > 0 ? preview.elec/preview.total*100 : 0 },
+                                    { label:'Transport (×0.21)',   value: preview.trans, color:'var(--teal-400)', pct: preview.total > 0 ? preview.trans/preview.total*100 : 0 },
+                                    { label:'Waste (×0.50)',       value: preview.waste, color:'var(--amber-400)', pct: preview.total > 0 ? preview.waste/preview.total*100 : 0 },
+                                ].map(row => (
+                                    <div key={row.label} style={{ marginBottom:14 }}>
+                                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+                                            <span style={{ fontSize:11, color:'var(--text-2)' }}>{row.label}</span>
+                                            <span style={{ fontSize:12, fontWeight:600, color:row.color }}>{row.value.toFixed(2)} kg</span>
+                                        </div>
+                                        <div className="progress-track">
+                                            <div className="progress-fill" style={{ width:`${row.pct}%`, background:row.color }}></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="card" style={{ padding:20 }}>
+                                <div className="label" style={{ marginBottom:12 }}>Emission Factors Used</div>
+                                {[
+                                    { icon:'zap', label:'Grid Electricity', factor:'0.82 kgCO₂/kWh', scope:2, color:'var(--blue-400)' },
+                                    { icon:'car', label:'Student Commute', factor:'0.21 kgCO₂/km', scope:3, color:'var(--teal-400)' },
+                                    { icon:'leaf2', label:'Canteen Waste', factor:'0.50 kgCO₂/kg', scope:1, color:'var(--amber-400)' },
+                                ].map(ef => (
+                                    <div key={ef.label} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
+                                        <Icon n={ef.icon} size={14} style={{ color:ef.color }}/>
+                                        <div style={{ flex:1 }}>
+                                            <div style={{ fontSize:12, fontWeight:500 }}>{ef.label}</div>
+                                            <div style={{ fontSize:10, color:'var(--text-3)' }}>{ef.factor}</div>
+                                        </div>
+                                        <span className={`scope-badge scope-${ef.scope}`} style={{ fontSize:9 }}>Scope {ef.scope}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </main>
+            <Toast />
+        </div>
+    );
+};
+
+// ─── App root ────────────────────────────────────────────────────────────
+const App = () => {
+    const [user, setUser] = useState(localStorage.getItem('campus_user'));
+    return user
+        ? <Dashboard user={user} onLogout={() => { localStorage.removeItem('campus_user'); setUser(null); }} />
+        : <LoginPage onLogin={u => { localStorage.setItem('campus_user', u); setUser(u); }} />;
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

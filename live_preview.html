@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbon Pulse Pro | Standalone Preview</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #10b981;
+            --bg-deep: #020617;
+            --glass: rgba(15, 23, 42, 0.7);
+        }
+
+        body {
+            background: var(--bg-deep);
+            color: #f1f5f9;
+            font-family: 'Outfit', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .mesh-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.1) 0px, transparent 50%);
+        }
+
+        .glass-panel {
+            background: var(--glass);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1.5rem;
+        }
+
+        .grad-text {
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="mesh-bg"></div>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const App = () => {
+            const [data] = useState([
+                { id: 1, date: '10:00 AM', total: 45.5, elec: 50, transport: 20, waste: 10, water: 5, paper: 2 },
+                { id: 2, date: '11:00 AM', total: 62.1, elec: 60, transport: 30, waste: 15, water: 7, paper: 3 },
+                { id: 3, date: '12:00 PM', total: 55.8, elec: 55, transport: 25, waste: 12, water: 6, paper: 2.5 },
+                { id: 4, date: '01:00 PM', total: 70.2, elec: 65, transport: 35, waste: 18, water: 8, paper: 4 }
+            ]);
+
+            const lineRef = useRef(null);
+            const pieRef = useRef(null);
+
+            useEffect(() => {
+                if (lineRef.current) {
+                    new Chart(lineRef.current, {
+                        type: 'line',
+                        data: {
+                            labels: data.map(d => d.date),
+                            datasets: [{
+                                data: data.map(d => d.total),
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                fill: true,
+                                tension: 0.4,
+                                borderWidth: 3
+                            }]
+                        },
+                        options: { 
+                            responsive: true, 
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { 
+                                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
+                                x: { grid: { display: false }, ticks: { color: '#64748b' } }
+                            }
+                        }
+                    });
+                }
+
+                if (pieRef.current) {
+                    new Chart(pieRef.current, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Elec', 'Commute', 'Waste', 'Water', 'Paper'],
+                            datasets: [{
+                                data: [55, 25, 12, 6, 2],
+                                backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'],
+                                borderWeight: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } } },
+                            cutout: '75%'
+                        }
+                    });
+                }
+            }, []);
+
+            return (
+                <div className="h-screen flex flex-col p-8 gap-8 max-w-7xl mx-auto">
+                    <header className="flex justify-between items-center">
+                        <div>
+                            <h1 className="text-3xl font-black tracking-tighter grad-text">CARBON PULSE PRO</h1>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Standalone Preview System</p>
+                        </div>
+                        <div className="glass-panel px-6 py-2 flex items-center gap-3">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                            <span className="text-[11px] font-bold text-emerald-500 uppercase tracking-widest">Simulated Data</span>
+                        </div>
+                    </header>
+
+                    <div className="grid grid-cols-12 gap-8 flex-1 overflow-hidden">
+                        <div className="col-span-8 flex flex-col gap-8">
+                            <div className="grid grid-cols-3 gap-8">
+                                <Card label="Cumulative Footprint" value="233.6" unit="kg CO2" color="text-emerald-400" />
+                                <Card label="Average Intensity" value="58.4" unit="kg / log" color="text-blue-400" />
+                                <Card label="Audit Confidence" value="98.2" unit="%" color="text-amber-400" />
+                            </div>
+                            <div className="glass-panel p-8 flex-1">
+                                <canvas ref={lineRef}></canvas>
+                            </div>
+                        </div>
+                        <div className="col-span-4 flex flex-col gap-8">
+                            <div className="glass-panel p-8 flex-1 flex flex-col items-center">
+                                <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-8 w-full">Impact Breakdown</h2>
+                                <div className="flex-1 w-full relative">
+                                    <canvas ref={pieRef}></canvas>
+                                </div>
+                            </div>
+                            <div className="glass-panel p-8 bg-emerald-500/5 border-emerald-500/20">
+                                <h3 className="text-sm font-bold text-emerald-500 uppercase mb-4">Sustainability Tip</h3>
+                                <p className="text-sm text-slate-400 leading-relaxed">
+                                    Your campus electricity load is 15% higher than the baseline. Consider optimizing canteen refrigeration cycles during off-peak hours.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const Card = ({ label, value, unit, color }) => (
+            <div className="glass-panel p-8">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">{label}</p>
+                <div className="flex items-baseline gap-2">
+                    <span className={`text-4xl font-black tracking-tighter ${color}`}>{value}</span>
+                    <span className="text-[10px] font-bold text-slate-600 uppercase">{unit}</span>
+                </div>
+            </div>
+        );
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
