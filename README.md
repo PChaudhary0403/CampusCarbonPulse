@@ -4,11 +4,11 @@
 *Submitted in partial fulfillment of the degree of Bachelor of Engineering in Electronics and Computer Science.*
 
 ### 👥 Team Members
-- **Niharika Ravi Kumar (31)**
-- **Shravani Phatak (40)**
-- **Devansh Shahane (47)**
-- **Nirbhay Tiwari (52)**
-- **Dhruv Vishwakarma (58)**
+- **Pankaj Chaudhary (06)**
+- **Varun Contractor (07)**
+- **Yash Daitkar (08)**
+- **Ashish Gupta (13)**
+- **Vedant Pachigar (32)**
 
 **Guide:** Mr. Varun Kumar Mishra  
 **Institution:** TCET (Electronics and Computer Science)  
